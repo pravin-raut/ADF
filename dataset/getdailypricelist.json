@@ -1,0 +1,43 @@
+{
+	"name": "getdailypricelist",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_http_getdata",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"BaseURL": "https://fetchdatanse.azurewebsites.net/api/"
+			}
+		},
+		"parameters": {
+			"in_day": {
+				"type": "string",
+				"defaultValue": "13"
+			},
+			"in_month": {
+				"type": "string",
+				"defaultValue": "10"
+			},
+			"in_year": {
+				"type": "string",
+				"defaultValue": "2022"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "HttpServerLocation",
+				"relativeUrl": {
+					"value": "@concat('getdailypricelist?day=',dataset().in_day,'&month=',dataset().in_month,'&year=',dataset().in_year)",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

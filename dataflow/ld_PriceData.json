@@ -1,0 +1,96 @@
+{
+	"name": "ld_PriceData",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ReadDailyPriceData",
+						"type": "DatasetReference"
+					},
+					"name": "ReadPriceData"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "StoreInDBPrice",
+						"type": "DatasetReference"
+					},
+					"name": "LoadPriceData"
+				}
+			],
+			"transformations": [
+				{
+					"name": "TrimAllStringColumns"
+				},
+				{
+					"name": "SelectPriceData"
+				},
+				{
+					"name": "FilterPriceData"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          SYMBOL as string,",
+				"          SERIES as string,",
+				"          OPEN as string,",
+				"          HIGH as string,",
+				"          LOW as string,",
+				"          CLOSE as string,",
+				"          LAST as string,",
+				"          PREVCLOSE as string,",
+				"          TOTTRDQTY as string,",
+				"          TOTTRDVAL as string,",
+				"          TIMESTAMP as string,",
+				"          TOTALTRADES as string,",
+				"          ISIN as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     rowUrlColumn: 'FileName') ~> ReadPriceData",
+				"SelectPriceData derive(each(match(type=='string'), $$ = trim($$))) ~> TrimAllStringColumns",
+				"ReadPriceData select(mapColumn(",
+				"          FileName,",
+				"          each(match(true()),",
+				"               trim($$) = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectPriceData",
+				"TrimAllStringColumns filter(SERIES==\"EQ\") ~> FilterPriceData",
+				"FilterPriceData sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     truncate:true,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          FileName,",
+				"          SYMBOL,",
+				"          SERIES,",
+				"          OPEN,",
+				"          HIGH,",
+				"          LOW,",
+				"          CLOSE,",
+				"          LAST,",
+				"          PREVCLOSE,",
+				"          TOTTRDQTY,",
+				"          TOTTRDVAL,",
+				"          TIMESTAMP,",
+				"          TOTALTRADES,",
+				"          ISIN",
+				"     ),",
+				"     preCommands: [],",
+				"     postCommands: []) ~> LoadPriceData"
+			]
+		}
+	}
+}

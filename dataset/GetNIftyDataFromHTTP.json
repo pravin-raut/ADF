@@ -1,0 +1,60 @@
+{
+	"name": "GetNIftyDataFromHTTP",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_http_getdata",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"BaseURL": "https://fetchdatanse.azurewebsites.net/api/"
+			}
+		},
+		"parameters": {
+			"FileName": {
+				"type": "string",
+				"defaultValue": "GetNifty50"
+			},
+			"Function": {
+				"type": "string",
+				"defaultValue": "GetNifty50"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "HttpServerLocation",
+				"relativeUrl": {
+					"value": "@concat(dataset().Function,'?FileName=',dataset().FileName)",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "Company Name",
+				"type": "String"
+			},
+			{
+				"name": "Industry",
+				"type": "String"
+			},
+			{
+				"name": "Symbol",
+				"type": "String"
+			},
+			{
+				"name": "Series",
+				"type": "String"
+			},
+			{
+				"name": "ISIN Code",
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,299 @@
+{
+	"name": "pl_Http_To_Gen2",
+	"properties": {
+		"activities": [
+			{
+				"name": "cp_HTTP_to_Gen2",
+				"description": "Hit the Azure Function by passing required input and generate CSV File required and push it to ADLS Gen2",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "GetDetailsToProcess",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GetDataFromHTTP",
+						"type": "DatasetReference",
+						"parameters": {
+							"in_day": {
+								"value": "@activity('GetDetailsToProcess').output.resultSets[0].rows[0].day\n",
+								"type": "Expression"
+							},
+							"in_month": {
+								"value": "@activity('GetDetailsToProcess').output.resultSets[0].rows[0].month\n",
+								"type": "Expression"
+							},
+							"in_year": {
+								"value": "@activity('GetDetailsToProcess').output.resultSets[0].rows[0].year\n",
+								"type": "Expression"
+							},
+							"Function": {
+								"value": "@pipeline().parameters.Function",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "stg_SaveDataGen2",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileSystem": {
+								"value": "@pipeline().parameters.FileSystem",
+								"type": "Expression"
+							},
+							"Directory": {
+								"value": "@pipeline().parameters.Directory",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@activity('GetDetailsToProcess').output.resultSets[0].rows[0].FileName\n",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "PrepareFileProcessingTable",
+				"description": "Insert the record into a table with a date for which the current file needs to be processed, considering holidays and weekdays.",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "PName",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().parameters.PROCESS_NAME",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								}
+							],
+							"type": "NonQuery",
+							"text": {
+								"value": "INSERT INTO TaskData (\n\tTASK_NAME\n\t,FILE_DATE\n\t,TASK_STATUS\n\t,ROW_INS_TMS\n\t)\nSELECT @PName AS PROCESS_NAME\n\t,CASE \n\t\tWHEN TheDayOfWeek = 6\n\t\t\tTHEN DATEADD(day, 3, TheDate)\n\t\tWHEN nh.HolidayDate IS NOT NULL\n\t\t\tTHEN DATEADD(day, 2, TheDate)\n\t\tELSE DATEADD(day, 1, TheDate)\n\t\tEND AS FILE_DATE\n\t,'STARTED'\n\t,Getdate() AS ROW_INS_TMS\nFROM DateDimension dd\nLEFT OUTER JOIN RefNseHoliday nh ON dd.TheDate = coalesce(DATEADD(day, - 1, cast(nh.HolidayDate AS DATE)), '2022-11-03')\nWHERE TheDate = (\n\t\tSELECT coalesce(max(FILE_DATE), '2022-11-03')\n\t\tFROM TaskData where TASK_NAME=@PName\n\t\t)\n\tAND TheDayOfWeek NOT IN (\n\t\t1\n\t\t,7\n\t\t)\n\t",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "OnSuccess",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "cp_HTTP_to_Gen2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "PName",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().parameters.PROCESS_NAME",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								}
+							],
+							"type": "Query",
+							"text": "update TaskData\nset\nROW_UPD_TMS=GETDATE(),\nTASK_STATUS='COMPLETED'\nwhere TASK_STATUS='STARTED'\nand Task_Name=@PName"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "OnFailed",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "cp_HTTP_to_Gen2",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "PName",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().parameters.PROCESS_NAME",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								}
+							],
+							"type": "Query",
+							"text": "update TaskData\nset\nROW_UPD_TMS=GETDATE(),\nTASK_STATUS='FAILED'\nwhere TASK_STATUS='STARTED'\nand Task_Name=@PName"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "GetDetailsToProcess",
+				"description": "Get Day ,Month, Year to Process from File Processing Table for Current File to be Processed",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "PrepareFileProcessingTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "PName",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().parameters.PROCESS_NAME",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								}
+							],
+							"type": "Query",
+							"text": "SELECT CONCAT(Task_Name,'_',replace(FILE_DATE,'-','_'),'.csv') as FileName,\n    RIGHT(concat(0,DAY(FILE_DATE)),2) AS day,\n    RIGHT(concat(0,month(FILE_DATE)),2) AS month,\n    year(FILE_DATE) as year\nfrom TaskData\nwhere TASK_STATUS='STARTED'\nand Task_Name=@PName"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"parameters": {
+			"Function": {
+				"type": "string",
+				"defaultValue": "getdailypricelist"
+			},
+			"FileSystem": {
+				"type": "string",
+				"defaultValue": "stockdata"
+			},
+			"Directory": {
+				"type": "string",
+				"defaultValue": "DailyPriceList"
+			},
+			"PROCESS_NAME": {
+				"type": "string",
+				"defaultValue": "Price"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-11-11T11:55:25Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

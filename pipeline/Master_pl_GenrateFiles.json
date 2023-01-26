@@ -1,0 +1,217 @@
+{
+	"name": "Master_pl_GenrateFiles",
+	"properties": {
+		"activities": [
+			{
+				"name": "ReadParamFromDB",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "ID",
+									"type": "Int64",
+									"value": {
+										"value": "@pipeline().parameters.ID",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								}
+							],
+							"type": "Query",
+							"text": "select PT.PARAM_ID,PT.[PROCESS_NAME],PT.[CONTAINER_NAME],PT.[DIRECTORY_NAME],PT.[FUNCTION_NAME],PT.[SCHEMA_NAME],PT.[TABLE_NAME] from\n(\nselect PARAM_ID,PARAM_NAME,PARAM_VALUE\nfrom PARAM_INFO\n) as SOURCETABLE\nPIVOT\n(\n    MAX(PARAM_VALUE)\n     FOR [PARAM_NAME] IN ([PROCESS_NAME],[CONTAINER_NAME],[DIRECTORY_NAME],[FUNCTION_NAME],[SCHEMA_NAME],[TABLE_NAME])\n) AS PT\nwhere PT.PARAM_ID=@ID"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Execute_Pk_HTTP_toGen2",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ReadParamFromDB",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_Http_To_Gen2",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"Function": {
+							"value": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].FUNCTION_NAME",
+							"type": "Expression"
+						},
+						"FileSystem": {
+							"value": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].CONTAINER_NAME",
+							"type": "Expression"
+						},
+						"Directory": {
+							"value": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].DIRECTORY_NAME",
+							"type": "Expression"
+						},
+						"PROCESS_NAME": {
+							"value": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].PROCESS_NAME",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "LoadFileinDB",
+				"type": "Switch",
+				"dependsOn": [
+					{
+						"activity": "Execute_Pk_HTTP_toGen2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].PROCESS_NAME\n",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "Activity",
+							"activities": [
+								{
+									"name": "LoadActivityFile",
+									"type": "ExecuteDataFlow",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataflow": {
+											"referenceName": "ld_ActivityData",
+											"type": "DataFlowReference",
+											"datasetParameters": {
+												"ReadActivityData": {
+													"ContainerName": "stockdata",
+													"FolderName": "DailyActivity"
+												},
+												"LoadActivityData": {
+													"TableName": "Stg_ActivityData",
+													"SchemaName": "dbo"
+												}
+											}
+										},
+										"compute": {
+											"coreCount": 8,
+											"computeType": "General"
+										},
+										"traceLevel": "Fine"
+									}
+								}
+							]
+						},
+						{
+							"value": "Price",
+							"activities": [
+								{
+									"name": "LoadPriceData",
+									"type": "ExecuteDataFlow",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataflow": {
+											"referenceName": "ld_PriceData",
+											"type": "DataFlowReference",
+											"datasetParameters": {
+												"ReadPriceData": {
+													"ContainerName": "stockdata",
+													"FolderName": "DailyPriceList"
+												},
+												"LoadPriceData": {
+													"TableName": "Stg_DailyPrice",
+													"SchemaName": "dbo"
+												}
+											}
+										},
+										"compute": {
+											"coreCount": 8,
+											"computeType": "General"
+										},
+										"traceLevel": "Fine"
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "LoadCoreTables",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "LoadFileinDB",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[ld_Stock_Core_Tables]"
+				},
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"ID": {
+				"type": "int",
+				"defaultValue": 1
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-01-19T18:16:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

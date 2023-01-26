@@ -1,0 +1,227 @@
+{
+	"name": "pl_GetNiftyData",
+	"properties": {
+		"activities": [
+			{
+				"name": "CopyNiftyDetails",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "ReadParamFromDB",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"dataIntegrationUnits": 2,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GetNIftyDataFromHTTP",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": "ind_nifty50list.csv",
+							"Function": "GetNifty50"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "stg_SaveDataGen2",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileSystem": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].CONTAINER_NAME",
+							"Directory": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].DIRECTORY_NAME",
+							"FileName": "Nifty50.csv"
+						}
+					}
+				]
+			},
+			{
+				"name": "ReadParamFromDB",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "SQLDBConnection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "select PT.PARAM_ID,PT.[PROCESS_NAME],PT.[CONTAINER_NAME],PT.[DIRECTORY_NAME],PT.[FUNCTION_NAME],PT.[SCHEMA_NAME],PT.[TABLE_NAME] from\n(\nselect PARAM_ID,PARAM_NAME,PARAM_VALUE\nfrom PARAM_INFO\n) as SOURCETABLE\nPIVOT\n(\n    MAX(PARAM_VALUE)\n     FOR [PARAM_NAME] IN ([PROCESS_NAME],[CONTAINER_NAME],[DIRECTORY_NAME],[FUNCTION_NAME],[SCHEMA_NAME],[TABLE_NAME])\n) AS PT\nwhere PT.PARAM_ID=3"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "CopyNiftyDetails_copy1",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "ReadParamFromDB",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"dataIntegrationUnits": 2,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GetNIftyDataFromHTTP",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": "ind_niftynext50list.csv",
+							"Function": "GetNifty50"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "stg_SaveDataGen2",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileSystem": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].CONTAINER_NAME",
+							"Directory": "@activity('ReadParamFromDB').output.resultSets[0].rows[0].DIRECTORY_NAME",
+							"FileName": "NiftyNext50.csv"
+						}
+					}
+				]
+			},
+			{
+				"name": "LoadNiftyData",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "CopyNiftyDetails",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "CopyNiftyDetails_copy1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "ld_Nifty_Data",
+						"type": "DataFlowReference",
+						"datasetParameters": {
+							"TargetNifty": {
+								"TableName": "NIFTY_DETAILS",
+								"SchemaName": "dbo"
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2023-01-20T15:18:08Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

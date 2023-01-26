@@ -1,0 +1,102 @@
+{
+	"name": "ld_ActivityData",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ReadActivityData",
+						"type": "DatasetReference"
+					},
+					"name": "ReadActivityData"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "StoreInDBActivity",
+						"type": "DatasetReference"
+					},
+					"name": "LoadActivityData"
+				}
+			],
+			"transformations": [
+				{
+					"name": "TrimAllStringColumns"
+				},
+				{
+					"name": "SelectActivityData"
+				},
+				{
+					"name": "FilterActivityData"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          SYMBOL as string,",
+				"          { SERIES} as string,",
+				"          { DATE1} as string,",
+				"          { PREV_CLOSE} as string,",
+				"          { OPEN_PRICE} as string,",
+				"          { HIGH_PRICE} as string,",
+				"          { LOW_PRICE} as string,",
+				"          { LAST_PRICE} as string,",
+				"          { CLOSE_PRICE} as string,",
+				"          { AVG_PRICE} as string,",
+				"          { TTL_TRD_QNTY} as string,",
+				"          { TURNOVER_LACS} as string,",
+				"          { NO_OF_TRADES} as string,",
+				"          { DELIV_QTY} as string,",
+				"          { DELIV_PER} as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     rowUrlColumn: 'FileName') ~> ReadActivityData",
+				"SelectActivityData derive(each(match(type=='string'), $$ = trim($$))) ~> TrimAllStringColumns",
+				"ReadActivityData select(mapColumn(",
+				"          FileName,",
+				"          { DATE} = { DATE1},",
+				"          each(match(true()),",
+				"               trim($$) = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectActivityData",
+				"TrimAllStringColumns filter(SERIES==\"EQ\") ~> FilterActivityData",
+				"FilterActivityData sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     truncate:true,",
+				"     format: 'table',",
+				"     dateFormat:'dd-MM-yyyy',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          FileName,",
+				"          SYMBOL,",
+				"          SERIES,",
+				"          DATE = DATE1,",
+				"          PREV_CLOSE,",
+				"          OPEN_PRICE,",
+				"          HIGH_PRICE,",
+				"          LOW_PRICE,",
+				"          LAST_PRICE,",
+				"          CLOSE_PRICE,",
+				"          AVG_PRICE,",
+				"          TTL_TRD_QNTY,",
+				"          TURNOVER_LACS,",
+				"          NO_OF_TRADES,",
+				"          DELIV_QTY,",
+				"          DELIV_PER",
+				"     ),",
+				"     preCommands: [],",
+				"     postCommands: []) ~> LoadActivityData"
+			]
+		}
+	}
+}

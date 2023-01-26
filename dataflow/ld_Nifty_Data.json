@@ -1,0 +1,64 @@
+{
+	"name": "ld_Nifty_Data",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ReadNiftyData",
+						"type": "DatasetReference"
+					},
+					"name": "ReadNiftyData"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "StoreInDBActivity",
+						"type": "DatasetReference"
+					},
+					"name": "TargetNifty"
+				}
+			],
+			"transformations": [
+				{
+					"name": "SelectNiftyData"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          {Company Name} as string,",
+				"          Industry as string,",
+				"          Symbol as string,",
+				"          Series as string,",
+				"          {ISIN Code} as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     rowUrlColumn: 'FileName') ~> ReadNiftyData",
+				"ReadNiftyData select(mapColumn(",
+				"          CompanyName = {Company Name},",
+				"          Industry,",
+				"          Symbol,",
+				"          Series,",
+				"          ISIN = {ISIN Code},",
+				"          Type = FileName",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectNiftyData",
+				"SelectNiftyData sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> TargetNifty"
+			]
+		}
+	}
+}

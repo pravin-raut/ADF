@@ -1,0 +1,93 @@
+{
+	"name": "ReadDailyPriceData",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_StorageData",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"ContainerName": {
+				"type": "string",
+				"defaultValue": "stockdata"
+			},
+			"FolderName": {
+				"type": "string",
+				"defaultValue": "DailyPriceList"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().FolderName",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().ContainerName",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": ""
+		},
+		"schema": [
+			{
+				"name": "SYMBOL",
+				"type": "String"
+			},
+			{
+				"name": "SERIES",
+				"type": "String"
+			},
+			{
+				"name": "OPEN",
+				"type": "String"
+			},
+			{
+				"name": "HIGH",
+				"type": "String"
+			},
+			{
+				"name": "LOW",
+				"type": "String"
+			},
+			{
+				"name": "CLOSE",
+				"type": "String"
+			},
+			{
+				"name": "LAST",
+				"type": "String"
+			},
+			{
+				"name": "PREVCLOSE",
+				"type": "String"
+			},
+			{
+				"name": "TOTTRDQTY",
+				"type": "String"
+			},
+			{
+				"name": "TOTTRDVAL",
+				"type": "String"
+			},
+			{
+				"name": "TIMESTAMP",
+				"type": "String"
+			},
+			{
+				"name": "TOTALTRADES",
+				"type": "String"
+			},
+			{
+				"name": "ISIN",
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

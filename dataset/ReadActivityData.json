@@ -1,0 +1,101 @@
+{
+	"name": "ReadActivityData",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_StorageData",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"ContainerName": {
+				"type": "string",
+				"defaultValue": "stockdata"
+			},
+			"FolderName": {
+				"type": "string",
+				"defaultValue": "DailyActivity"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().FolderName",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().ContainerName",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": ""
+		},
+		"schema": [
+			{
+				"name": "SYMBOL",
+				"type": "String"
+			},
+			{
+				"name": " SERIES",
+				"type": "String"
+			},
+			{
+				"name": " DATE1",
+				"type": "String"
+			},
+			{
+				"name": " PREV_CLOSE",
+				"type": "String"
+			},
+			{
+				"name": " OPEN_PRICE",
+				"type": "String"
+			},
+			{
+				"name": " HIGH_PRICE",
+				"type": "String"
+			},
+			{
+				"name": " LOW_PRICE",
+				"type": "String"
+			},
+			{
+				"name": " LAST_PRICE",
+				"type": "String"
+			},
+			{
+				"name": " CLOSE_PRICE",
+				"type": "String"
+			},
+			{
+				"name": " AVG_PRICE",
+				"type": "String"
+			},
+			{
+				"name": " TTL_TRD_QNTY",
+				"type": "String"
+			},
+			{
+				"name": " TURNOVER_LACS",
+				"type": "String"
+			},
+			{
+				"name": " NO_OF_TRADES",
+				"type": "String"
+			},
+			{
+				"name": " DELIV_QTY",
+				"type": "String"
+			},
+			{
+				"name": " DELIV_PER",
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

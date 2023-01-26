@@ -1,0 +1,9 @@
+{
+	"name": "dfstockdatanalysis",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "f99dff38-7a04-45c0-9f3f-63699daa60e3",
+		"tenantId": "cc5fcbb6-dce0-40b4-ba9f-40a62abbc6ed"
+	}
+}
